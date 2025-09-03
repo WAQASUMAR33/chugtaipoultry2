@@ -8,12 +8,21 @@ export default function PurchasesPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState([]);
+  const [filteredPurchases, setFilteredPurchases] = useState([]);
   const [partyAccounts, setPartyAccounts] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [accountsError, setAccountsError] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    accountId: '',
+    startDate: '',
+    endDate: '',
+    searchTerm: ''
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -48,6 +57,7 @@ export default function PurchasesPage() {
         const data = await response.json();
         console.log('Purchases fetched:', data);
         setPurchases(data);
+        setFilteredPurchases(data);
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch purchases:', response.status, errorText);
@@ -90,6 +100,65 @@ export default function PurchasesPage() {
       fetchPartyAccounts();
     }
   }, [user]);
+
+  // Filter function
+  const filterPurchases = useCallback(() => {
+    let filtered = [...purchases];
+
+    // Filter by account
+    if (filters.accountId && filters.accountId !== 'ALL') {
+      filtered = filtered.filter(purchase => 
+        purchase.accountId === parseInt(filters.accountId)
+      );
+    }
+
+    // Filter by date range
+    if (filters.startDate) {
+      filtered = filtered.filter(purchase => 
+        new Date(purchase.date) >= new Date(filters.startDate)
+      );
+    }
+
+    if (filters.endDate) {
+      filtered = filtered.filter(purchase => 
+        new Date(purchase.date) <= new Date(filters.endDate)
+      );
+    }
+
+    // Filter by search term (account name, vehicle number, or details)
+    if (filters.searchTerm) {
+      const searchLower = filters.searchTerm.toLowerCase();
+      filtered = filtered.filter(purchase => 
+        purchase.account.name.toLowerCase().includes(searchLower) ||
+        purchase.vehicleNumber.toLowerCase().includes(searchLower) ||
+        (purchase.totalManagment && purchase.totalManagment.toString().includes(filters.searchTerm))
+      );
+    }
+
+    setFilteredPurchases(filtered);
+  }, [purchases, filters]);
+
+  // Apply filters when purchases or filters change
+  useEffect(() => {
+    filterPurchases();
+  }, [filterPurchases]);
+
+  // Handle filter changes
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      accountId: '',
+      startDate: '',
+      endDate: '',
+      searchTerm: ''
+    });
+  };
 
   const handleAddPurchase = () => {
     setShowForm(true);
@@ -519,11 +588,92 @@ export default function PurchasesPage() {
            </div>
          </div>
 
+         {/* Filter Section */}
+         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Filter Purchases</h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Account Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account
+                </label>
+                <select
+                  value={filters.accountId}
+                  onChange={(e) => handleFilterChange('accountId', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
+                >
+                  <option value="">All Accounts</option>
+                  {partyAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Start Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
+                />
+              </div>
+
+              {/* End Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
+                />
+              </div>
+
+              {/* Search Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  placeholder="Account name, vehicle..."
+                  value={filters.searchTerm}
+                  onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mt-4">
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Clear Filters
+              </button>
+              <span className="text-sm text-gray-500">
+                Showing {filteredPurchases.length} of {purchases.length} purchases
+              </span>
+            </div>
+          </div>
+         </div>
+
          {/* Purchases List */}
          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Purchases ({purchases.length})
+              Purchases ({filteredPurchases.length})
             </h2>
           </div>
 
@@ -532,7 +682,7 @@ export default function PurchasesPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-2 text-gray-500">Loading purchases...</p>
             </div>
-          ) : purchases.length === 0 ? (
+          ) : filteredPurchases.length === 0 ? (
             <div className="p-8 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -580,7 +730,7 @@ export default function PurchasesPage() {
                    </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {purchases.map((purchase) => (
+                  {filteredPurchases.map((purchase) => (
                     <tr key={purchase.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(purchase.date).toLocaleDateString('en-US', {

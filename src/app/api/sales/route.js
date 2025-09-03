@@ -120,6 +120,9 @@ export async function POST(request) {
 
     // Create ledger entries for the sale transaction
     
+    // Use the sale date for all ledger entries
+    const saleDate = new Date(date);
+    
     // 1. Opening Balance Entry (if there's a previous balance)
     if (actualPreBalance > 0) {
       await prisma.ledger.create({
@@ -130,7 +133,9 @@ export async function POST(request) {
           details: `Opening Balance: PKR ${actualPreBalance} (Customer owes us)`,
           type: 'OPENING_BALANCE',
           referenceId: sale.id,
-          referenceType: 'SALE'
+          referenceType: 'SALE',
+          createdAt: saleDate,
+          updatedAt: saleDate
         }
       });
     }
@@ -144,7 +149,9 @@ export async function POST(request) {
         details: `Sale: ${weight}kg @ PKR ${rate} = PKR ${totalAmount}`,
         type: 'SALE',
         referenceId: sale.id,
-        referenceType: 'SALE'
+        referenceType: 'SALE',
+        createdAt: saleDate,
+        updatedAt: saleDate
       }
     });
 
@@ -158,7 +165,9 @@ export async function POST(request) {
           details: `Payment from customer: PKR ${payment}`,
           type: 'PAYMENT',
           referenceId: sale.id,
-          referenceType: 'SALE'
+          referenceType: 'SALE',
+          createdAt: saleDate,
+          updatedAt: saleDate
         }
       });
     }

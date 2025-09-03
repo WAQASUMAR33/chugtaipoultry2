@@ -8,10 +8,19 @@ export default function SalesPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState([]);
+  const [filteredSales, setFilteredSales] = useState([]);
   const [customerAccounts, setCustomerAccounts] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    accountId: '',
+    startDate: '',
+    endDate: '',
+    searchTerm: ''
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -42,6 +51,7 @@ export default function SalesPage() {
       if (response.ok) {
         const data = await response.json();
         setSales(data);
+        setFilteredSales(data);
       } else {
         console.error('Failed to fetch sales');
       }
@@ -72,6 +82,64 @@ export default function SalesPage() {
       fetchCustomerAccounts();
     }
   }, [user]);
+
+  // Filter function
+  const filterSales = useCallback(() => {
+    let filtered = [...sales];
+
+    // Filter by account
+    if (filters.accountId && filters.accountId !== 'ALL') {
+      filtered = filtered.filter(sale => 
+        sale.accountId === parseInt(filters.accountId)
+      );
+    }
+
+    // Filter by date range
+    if (filters.startDate) {
+      filtered = filtered.filter(sale => 
+        new Date(sale.date) >= new Date(filters.startDate)
+      );
+    }
+
+    if (filters.endDate) {
+      filtered = filtered.filter(sale => 
+        new Date(sale.date) <= new Date(filters.endDate)
+      );
+    }
+
+    // Filter by search term (account name or amount)
+    if (filters.searchTerm) {
+      const searchLower = filters.searchTerm.toLowerCase();
+      filtered = filtered.filter(sale => 
+        sale.account.name.toLowerCase().includes(searchLower) ||
+        (sale.totalAmount && sale.totalAmount.toString().includes(filters.searchTerm))
+      );
+    }
+
+    setFilteredSales(filtered);
+  }, [sales, filters]);
+
+  // Apply filters when sales or filters change
+  useEffect(() => {
+    filterSales();
+  }, [filterSales]);
+
+  // Handle filter changes
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      accountId: '',
+      startDate: '',
+      endDate: '',
+      searchTerm: ''
+    });
+  };
 
   const handleAddSale = () => {
     setShowForm(true);
@@ -499,11 +567,92 @@ export default function SalesPage() {
           </div>
         </div>
 
+        {/* Filter Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Filter Sales</h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Account Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account
+                </label>
+                <select
+                  value={filters.accountId}
+                  onChange={(e) => handleFilterChange('accountId', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
+                >
+                  <option value="">All Accounts</option>
+                  {customerAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Start Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
+                />
+              </div>
+
+              {/* End Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
+                />
+              </div>
+
+              {/* Search Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  placeholder="Account name, amount..."
+                  value={filters.searchTerm}
+                  onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mt-4">
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Clear Filters
+              </button>
+              <span className="text-sm text-gray-500">
+                Showing {filteredSales.length} of {sales.length} sales
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Sales List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Sales ({sales.length})
+              Sales ({filteredSales.length})
             </h2>
           </div>
 
@@ -512,7 +661,7 @@ export default function SalesPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-2 text-gray-500">Loading sales...</p>
             </div>
-          ) : sales.length === 0 ? (
+          ) : filteredSales.length === 0 ? (
             <div className="p-8 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -557,7 +706,7 @@ export default function SalesPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {sales.map((sale) => (
+                  {filteredSales.map((sale) => (
                     <tr key={sale.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(sale.date).toLocaleDateString('en-US', {

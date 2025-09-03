@@ -251,7 +251,7 @@ export default function AccountsPage() {
                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700"
                >
                 <option value="ALL">All Types</option>
-                <option value="EXPENSE">Expense</option>
+                <option value="CASH">Cash</option>
                 <option value="PARTY_ACCOUNT">Party Account</option>
                 <option value="CUSTOMER_ACCOUNT">Customer Account</option>
               </select>
@@ -316,6 +316,9 @@ export default function AccountsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Transactions
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Balance
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -336,7 +339,7 @@ export default function AccountsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        account.type === 'EXPENSE' ? 'bg-red-100 text-red-800' :
+                        account.type === 'CASH' ? 'bg-red-100 text-red-800' :
                         account.type === 'PARTY_ACCOUNT' ? 'bg-blue-100 text-blue-800' :
                         'bg-green-100 text-green-800'
                       }`}>
@@ -355,6 +358,15 @@ export default function AccountsPage() {
                         <span>Purchase: {account._count?.purchases || 0}</span>
                         <span>Journals: {(account._count?.debitJournals || 0) + (account._count?.creditJournals || 0)}</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <span className={`text-sm font-bold ${
+                        account.type === 'PARTY_ACCOUNT' ? 'text-red-600' :
+                        account.type === 'CUSTOMER_ACCOUNT' ? 'text-green-600' :
+                        'text-gray-900'
+                      }`}>
+                        PKR {account.balance ? parseFloat(account.balance).toFixed(2) : '0.00'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
@@ -451,7 +463,7 @@ export default function AccountsPage() {
                    >
                     <option value="CUSTOMER_ACCOUNT">Customer Account</option>
                     <option value="PARTY_ACCOUNT">Party Account</option>
-                    <option value="EXPENSE">Expense</option>
+                    <option value="CASH">Cash</option>
                   </select>
                 </div>
 
@@ -557,12 +569,31 @@ export default function AccountsPage() {
                         Account Type
                       </label>
                       <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-                        viewingAccount.type === 'EXPENSE' ? 'bg-red-100 text-red-800' :
+                        viewingAccount.type === 'CASH' ? 'bg-red-100 text-red-800' :
                         viewingAccount.type === 'PARTY_ACCOUNT' ? 'bg-blue-100 text-blue-800' :
                         'bg-green-100 text-green-800'
                       }`}>
                         {viewingAccount.type.replace('_', ' ')}
                       </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        Account Balance
+                      </label>
+                      <p className={`text-lg font-bold ${
+                        viewingAccount.type === 'PARTY_ACCOUNT' ? 'text-red-600' :
+                        viewingAccount.type === 'CUSTOMER_ACCOUNT' ? 'text-green-600' :
+                        'text-gray-900'
+                      }`}>
+                        PKR {viewingAccount.balance ? parseFloat(viewingAccount.balance).toFixed(2) : '0.00'}
+                        {viewingAccount.type === 'PARTY_ACCOUNT' && (
+                          <span className="text-xs text-red-500 ml-2">(We owe)</span>
+                        )}
+                        {viewingAccount.type === 'CUSTOMER_ACCOUNT' && (
+                          <span className="text-xs text-green-500 ml-2">(They owe us)</span>
+                        )}
+                      </p>
                     </div>
 
                     <div>

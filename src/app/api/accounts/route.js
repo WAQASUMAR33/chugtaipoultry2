@@ -56,9 +56,21 @@ export async function POST(request) {
     const body = await request.json();
     const { name, phone, address, type, balance } = body;
 
+    // Debug logging
+    console.log('Account creation request:', { name, phone, address, type, balance });
+
     if (!name || !type) {
       return NextResponse.json(
         { error: 'Name and type are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate account type
+    const validTypes = ['CASH', 'PARTY_ACCOUNT', 'CUSTOMER_ACCOUNT'];
+    if (!validTypes.includes(type)) {
+      return NextResponse.json(
+        { error: `Invalid account type. Must be one of: ${validTypes.join(', ')}` },
         { status: 400 }
       );
     }
