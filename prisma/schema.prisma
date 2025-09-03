@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  EXPENSE
+  PARTY_ACCOUNT
+  CUSTOMER_ACCOUNT
+}
+
+model Ledger {
+  id            Int        @id @default(autoincrement())
+  type          String     // PURCHASE, PAYMENT, SALE, MANUAL
+  account       Account    @relation(fields: [accountId], references: [id])
+  accountId     Int
+  drAmount      Float      @default(0)
+  crAmount      Float      @default(0)
+  details       String?
+  referenceId   Int?       // ID of related purchase/sale
+  referenceType String?    // Type of reference (PURCHASE, SALE, etc.)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Journal {
+  id              Int        @id @default(autoincrement())
+  debitAccount    Account    @relation("DebitAccount", fields: [debitAccountId], references: [id])
+  debitAccountId  Int
+  creditAccount   Account    @relation("CreditAccount", fields: [creditAccountId], references: [id])
+  creditAccountId Int
+  amount          Float
+  description     String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model Account {
+  id          Int         @id @default(autoincrement())
+  name        String
+  phone       String?
+  address     String?
+  type        AccountType
+  balance     Float       @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  ledgers     Ledger[]
+  sales       Sale[]
+  purchases   Purchase[]
+  debitJournals  Journal[] @relation("DebitAccount")
+  creditJournals Journal[] @relation("CreditAccount")
+}
+
+model Sale {
+  id          Int        @id @default(autoincrement())
+  account     Account    @relation(fields: [accountId], references: [id])
+  accountId   Int
+  date        DateTime
+  weight      Float
+  rate        Float
+  totalAmount Float
+  preBalance  Float
+  payment     Float
+  balance     Float
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Purchase {
+  id             Int        @id @default(autoincrement())
+  account        Account    @relation(fields: [accountId], references: [id])
+  accountId      Int
+  date           DateTime
+  vehicleNumber  String     @default("N/A") // Vehicle number for the purchase
+  weight         Float
+  rate           Float
+  totalManagment Float
+  preBalance     Float
+  payment        Float
+  balance        Float
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  SALESMAN
+  USER
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  fullName  String
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
