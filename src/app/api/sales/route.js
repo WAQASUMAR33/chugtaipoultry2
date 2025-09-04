@@ -109,6 +109,60 @@ export async function POST(request) {
       }
     });
 
+    // Create ledger entries for the sale transaction
+    
+    // Use the sale date for all ledger entries
+    const saleDate = new Date(date);
+    
+    // Get the opening balance from the last ledger entry's closing balance
+    const lastLedgerEntry = await prisma.ledger.findFirst({
+      where: { accountId: parseInt(accountId) },
+      orderBy: { id: 'desc' }
+    });
+    
+    let openingBalance = 0;
+    if (lastLedgerEntry) {
+      openingBalance = lastLedgerEntry.closing_balance;
+    }
+    
+    // For CUSTOMER_ACCOUNT: 
+    // - DEBIT (sale) increases what they owe us (positive balance)
+    // - CREDIT (payment) decreases what they owe us (reduces balance)
+    
+    // 1. Sale Entry (DEBIT - customer owes us money)
+    const saleClosingBalance = openingBalance + parseFloat(totalAmount);
+    await prisma.ledger.create({
+      data: {
+        accountId: parseInt(accountId),
+        drAmount: parseFloat(totalAmount),
+        crAmount: 0,
+        details: `Sale: ${weight}kg @ PKR ${rate} = PKR ${totalAmount}`,
+        type: 'SALE',
+        referenceId: sale.id,
+        referenceType: 'SALE',
+        opening_balance: parseFloat(openingBalance.toFixed(2)),
+        closing_balance: parseFloat(saleClosingBalance.toFixed(2))
+      }
+    });
+
+    // 2. Payment Entry (if payment was received) - CREDIT reduces what customer owes
+    if (parseFloat(payment || 0) > 0) {
+      const paymentClosingBalance = saleClosingBalance - parseFloat(payment);
+      await prisma.ledger.create({
+        data: {
+          accountId: parseInt(accountId),
+          drAmount: 0,
+          crAmount: parseFloat(payment),
+          details: `Payment received: PKR ${payment}`,
+          type: 'PAYMENT',
+          referenceId: sale.id,
+          referenceType: 'SALE',
+          opening_balance: parseFloat(saleClosingBalance.toFixed(2)),
+          closing_balance: parseFloat(paymentClosingBalance.toFixed(2))
+        }
+      });
+    }
+
     // Update account balance (what customer owes us)
     // Balance = Previous Balance + Sale Amount - Payment Made
     const newBalance = actualPreBalance + parseFloat(totalAmount) - parseFloat(payment || 0);
@@ -117,60 +171,6 @@ export async function POST(request) {
       where: { id: parseInt(accountId) },
       data: { balance: newBalance }
     });
-
-    // Create ledger entries for the sale transaction
-    
-    // Use the sale date for all ledger entries
-    const saleDate = new Date(date);
-    
-    // 1. Opening Balance Entry (if there's a previous balance)
-    if (actualPreBalance > 0) {
-      await prisma.ledger.create({
-        data: {
-          accountId: parseInt(accountId),
-          drAmount: actualPreBalance, // DEBIT: Previous balance owed by customer
-          crAmount: 0,
-          details: `Opening Balance: PKR ${actualPreBalance} (Customer owes us)`,
-          type: 'OPENING_BALANCE',
-          referenceId: sale.id,
-          referenceType: 'SALE',
-          createdAt: saleDate,
-          updatedAt: saleDate
-        }
-      });
-    }
-    
-    // 2. Sale Entry (DEBIT - customer owes us money)
-    await prisma.ledger.create({
-      data: {
-        accountId: parseInt(accountId),
-        drAmount: parseFloat(totalAmount), // DEBIT: Customer owes this amount
-        crAmount: 0,
-        details: `Sale: ${weight}kg @ PKR ${rate} = PKR ${totalAmount}`,
-        type: 'SALE',
-        referenceId: sale.id,
-        referenceType: 'SALE',
-        createdAt: saleDate,
-        updatedAt: saleDate
-      }
-    });
-
-    // 3. Payment Entry (if payment was received) - CREDIT reduces what customer owes
-    if (parseFloat(payment || 0) > 0) {
-      await prisma.ledger.create({
-        data: {
-          accountId: parseInt(accountId),
-          drAmount: 0,
-          crAmount: parseFloat(payment), // CREDIT: Payment reduces customer's debt
-          details: `Payment from customer: PKR ${payment}`,
-          type: 'PAYMENT',
-          referenceId: sale.id,
-          referenceType: 'SALE',
-          createdAt: saleDate,
-          updatedAt: saleDate
-        }
-      });
-    }
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error) {

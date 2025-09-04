@@ -110,6 +110,60 @@ export async function POST(request) {
       }
     });
 
+    // Create ledger entries for the purchase transaction
+    
+    // Use the purchase date for all ledger entries
+    const purchaseDate = new Date(date);
+    
+    // Get the opening balance from the last ledger entry's closing balance
+    const lastLedgerEntry = await prisma.ledger.findFirst({
+      where: { accountId: parseInt(accountId) },
+      orderBy: { id: 'desc' }
+    });
+    
+    let openingBalance = 0;
+    if (lastLedgerEntry) {
+      openingBalance = lastLedgerEntry.closing_balance;
+    }
+    
+    // For PARTY_ACCOUNT (suppliers): 
+    // - CREDIT (purchase) increases what we owe them (positive balance)
+    // - DEBIT (payment) decreases what we owe them (reduces balance)
+    
+    // 1. Purchase Entry (CREDIT - we owe money to supplier)
+    const purchaseClosingBalance = openingBalance + parseFloat(totalManagment);
+    await prisma.ledger.create({
+      data: {
+        accountId: parseInt(accountId),
+        drAmount: 0,
+        crAmount: parseFloat(totalManagment),
+        details: `Purchase: ${weight}kg @ PKR ${rate} = PKR ${totalManagment}`,
+        type: 'PURCHASE',
+        referenceId: purchase.id,
+        referenceType: 'PURCHASE',
+        opening_balance: parseFloat(openingBalance.toFixed(2)),
+        closing_balance: parseFloat(purchaseClosingBalance.toFixed(2))
+      }
+    });
+
+    // 2. Payment Entry (if payment was made) - DEBIT reduces what we owe
+    if (parseFloat(payment || 0) > 0) {
+      const paymentClosingBalance = purchaseClosingBalance - parseFloat(payment);
+      await prisma.ledger.create({
+        data: {
+          accountId: parseInt(accountId),
+          drAmount: parseFloat(payment),
+          crAmount: 0,
+          details: `Payment to supplier: PKR ${payment}`,
+          type: 'PAYMENT',
+          referenceId: purchase.id,
+          referenceType: 'PURCHASE',
+          opening_balance: parseFloat(purchaseClosingBalance.toFixed(2)),
+          closing_balance: parseFloat(paymentClosingBalance.toFixed(2))
+        }
+      });
+    }
+
     // Update account balance (what we owe to supplier)
     // Balance = Previous Balance + Purchase Amount - Payment Made
     const newBalance = actualPreBalance + parseFloat(totalManagment) - parseFloat(payment || 0);
@@ -118,60 +172,6 @@ export async function POST(request) {
       where: { id: parseInt(accountId) },
       data: { balance: newBalance }
     });
-
-    // Create ledger entries for the purchase transaction
-    
-    // Use the purchase date for all ledger entries
-    const purchaseDate = new Date(date);
-    
-    // 1. Opening Balance Entry (if there's a previous balance)
-    if (actualPreBalance > 0) {
-      await prisma.ledger.create({
-        data: {
-          accountId: parseInt(accountId),
-          drAmount: 0,
-          crAmount: actualPreBalance, // CREDIT: Previous balance owed to supplier
-          details: `Opening Balance: PKR ${actualPreBalance} (We owe supplier)`,
-          type: 'OPENING_BALANCE',
-          referenceId: purchase.id,
-          referenceType: 'PURCHASE',
-          createdAt: purchaseDate,
-          updatedAt: purchaseDate
-        }
-      });
-    }
-    
-    // 2. Purchase Entry (CREDIT - we owe money to supplier)
-    await prisma.ledger.create({
-      data: {
-        accountId: parseInt(accountId),
-        drAmount: 0,
-        crAmount: parseFloat(totalManagment), // CREDIT: We owe this amount to supplier
-        details: `Purchase: ${weight}kg @ PKR ${rate} = PKR ${totalManagment}`,
-        type: 'PURCHASE',
-        referenceId: purchase.id,
-        referenceType: 'PURCHASE',
-        createdAt: purchaseDate,
-        updatedAt: purchaseDate
-      }
-    });
-
-    // 3. Payment Entry (if payment was made) - DEBIT reduces what we owe
-    if (parseFloat(payment || 0) > 0) {
-      await prisma.ledger.create({
-        data: {
-          accountId: parseInt(accountId),
-          drAmount: parseFloat(payment), // DEBIT: Payment reduces our liability
-          crAmount: 0,
-          details: `Payment to supplier: PKR ${payment}`,
-          type: 'PAYMENT',
-          referenceId: purchase.id,
-          referenceType: 'PURCHASE',
-          createdAt: purchaseDate,
-          updatedAt: purchaseDate
-        }
-      });
-    }
 
     return NextResponse.json(purchase, { status: 201 });
   } catch (error) {

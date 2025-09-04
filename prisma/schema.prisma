@@ -8,17 +8,19 @@ datasource db {
 }
 
 model Ledger {
-  id            Int      @id @default(autoincrement())
-  type          String
-  accountId     Int
-  drAmount      Float    @default(0)
-  crAmount      Float    @default(0)
-  details       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  referenceId   Int?
-  referenceType String?
-  account       Account  @relation(fields: [accountId], references: [id])
+  id              Int      @id @default(autoincrement())
+  type            String
+  accountId       Int
+  drAmount        Float    @default(0)
+  crAmount        Float    @default(0)
+  details         String?
+  opening_balance Float    @default(0)
+  closing_balance Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  referenceId     Int?
+  referenceType   String?
+  account         Account  @relation(fields: [accountId], references: [id])
 
   @@index([accountId], map: "Ledger_accountId_fkey")
 }

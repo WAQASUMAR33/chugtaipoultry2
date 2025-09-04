@@ -55,101 +55,57 @@ export async function GET(request) {
        take: limit
      });
 
-    // Calculate running balances with proper accounting logic
-    let runningBalance = 0;
-    const ledgersWithBalance = ledgers.map((ledger, index) => {
-      // Calculate pre-balance (balance before this transaction)
-      let preBalance = 0;
+    // Use the opening_balance and closing_balance fields directly from the database
+    const ledgersWithBalance = ledgers.map(ledger => {
+      // Format opening balance
       let preBalanceLabel = '0';
-      
-      if (index > 0) {
-        // Calculate balance from all previous transactions
-        let tempBalance = 0;
-        
-        for (let i = 0; i < index; i++) {
-          const prevLedger = ledgers[i];
-          if (prevLedger.type === 'OPENING_BALANCE') {
-            // Opening balance logic
-            if (prevLedger.account.type === 'PARTY_ACCOUNT') {
-              // For suppliers: CREDIT means we owe them, DEBIT means they owe us (advance)
-              tempBalance = prevLedger.crAmount - prevLedger.drAmount;
-            } else {
-              // For customers: DEBIT means they owe us, CREDIT means we owe them
-              tempBalance = prevLedger.drAmount - prevLedger.crAmount;
-            }
+      const openingBalance = ledger.opening_balance || 0;
+      if (openingBalance !== 0) {
+        const absBalance = Math.abs(openingBalance).toFixed(2);
+        if (ledger.account.type === 'PARTY_ACCOUNT') {
+          // For suppliers
+          if (openingBalance > 0) {
+            preBalanceLabel = `${absBalance} Cr (We owe them)`;
           } else {
-            // Regular transaction entries
-            if (prevLedger.account.type === 'PARTY_ACCOUNT') {
-              // For suppliers: CREDIT increases what we owe, DEBIT decreases what we owe
-              tempBalance += prevLedger.crAmount - prevLedger.drAmount;
-            } else {
-              // For customers: DEBIT increases what they owe us, CREDIT decreases what they owe us
-              tempBalance += prevLedger.drAmount - prevLedger.crAmount;
-            }
+            preBalanceLabel = `${absBalance} Dr (They owe us / Advance)`;
+          }
+        } else {
+          // For customers
+          if (openingBalance > 0) {
+            preBalanceLabel = `${absBalance} Dr (They owe us)`;
+          } else {
+            preBalanceLabel = `${absBalance} Cr (We owe them)`;
           }
         }
-        preBalance = Math.abs(tempBalance);
-        
-        // Format pre-balance label
-        if (tempBalance > 0) {
-          preBalanceLabel = `${preBalance} Cr`;
-        } else if (tempBalance < 0) {
-          preBalanceLabel = `${preBalance} Dr`;
-        } else {
-          preBalanceLabel = '0';
-        }
       }
       
-      // Update running balance for current transaction
-      if (ledger.type === 'OPENING_BALANCE') {
-        // Opening balance sets the initial running balance
+      // Format closing balance
+      let postBalanceLabel = '0 (Settled)';
+      const closingBalance = ledger.closing_balance || 0;
+      if (closingBalance !== 0) {
+        const absBalance = Math.abs(closingBalance).toFixed(2);
         if (ledger.account.type === 'PARTY_ACCOUNT') {
-          // For suppliers: CREDIT means we owe them, DEBIT means they owe us (advance)
-          runningBalance = ledger.crAmount - ledger.drAmount;
+          // For suppliers
+          if (closingBalance > 0) {
+            postBalanceLabel = `${absBalance} Cr (We owe them)`;
+          } else {
+            postBalanceLabel = `${absBalance} Dr (They owe us / Advance)`;
+          }
         } else {
-          // For customers: DEBIT means they owe us, CREDIT means we owe them
-          runningBalance = ledger.drAmount - ledger.crAmount;
-        }
-      } else {
-        // Regular transaction entries
-        if (ledger.account.type === 'PARTY_ACCOUNT') {
-          // For suppliers: CREDIT increases what we owe, DEBIT decreases what we owe
-          runningBalance += ledger.crAmount - ledger.drAmount;
-        } else {
-          // For customers: DEBIT increases what they owe us, CREDIT decreases what they owe us
-          runningBalance += ledger.drAmount - ledger.crAmount;
-        }
-      }
-      
-      // Calculate post-balance (balance after this transaction)
-      let postBalance = Math.abs(runningBalance);
-      let postBalanceLabel;
-      
-      if (ledger.account.type === 'PARTY_ACCOUNT') {
-        // For suppliers (Accounts Payable)
-        if (runningBalance > 0) {
-          postBalanceLabel = `${postBalance} Cr (We owe them)`;
-        } else if (runningBalance < 0) {
-          postBalanceLabel = `${postBalance} Dr (They owe us / Advance)`;
-        } else {
-          postBalanceLabel = '0 (Settled)';
-        }
-      } else {
-        // For customers (Accounts Receivable)
-        if (runningBalance > 0) {
-          postBalanceLabel = `${postBalance} Dr (They owe us)`;
-        } else if (runningBalance < 0) {
-          postBalanceLabel = `${postBalance} Cr (We owe them)`;
-        } else {
-          postBalanceLabel = '0 (Settled)';
+          // For customers
+          if (closingBalance > 0) {
+            postBalanceLabel = `${absBalance} Dr (They owe us)`;
+          } else {
+            postBalanceLabel = `${absBalance} Cr (We owe them)`;
+          }
         }
       }
       
       return {
         ...ledger,
-        preBalance,
+        preBalance: Math.abs(openingBalance),
         preBalanceLabel,
-        postBalance,
+        postBalance: Math.abs(closingBalance),
         postBalanceLabel
       };
     });

@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #000000;
 }
 
 @theme inline {
@@ -15,7 +15,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: #ffffff;
   }
 }
 
@@ -23,4 +23,109 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Ensure body text is always visible */
+body, html {
+  color: #000000 !important;
+}
+
+/* Ensure all text is visible */
+* {
+  color: inherit;
+}
+
+/* Force black text for better visibility */
+.text-black {
+  color: #000000 !important;
+}
+
+.text-gray-900 {
+  color: #111827 !important;
+}
+
+.text-gray-800 {
+  color: #1f2937 !important;
+}
+
+.text-gray-700 {
+  color: #374151 !important;
+}
+
+.text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.text-gray-500 {
+  color: #6b7280 !important;
+}
+
+/* Ensure all headings are visible */
+h1, h2, h3, h4, h5, h6 {
+  color: #000000 !important;
+}
+
+/* Ensure all paragraphs and text are visible */
+p, span, div {
+  color: inherit;
+}
+
+/* Force visibility for form elements */
+input, textarea, select {
+  color: #000000 !important;
+}
+
+/* Ensure button text is white */
+button {
+  color: #ffffff !important;
+}
+
+/* Ensure link text is visible */
+a {
+  color: inherit;
+}
+
+/* Debit and Credit column colors */
+.dr-amount, .debit-amount, .dr-column {
+  color: #dc2626 !important; /* Red color for debit */
+}
+
+.cr-amount, .credit-amount, .cr-column {
+  color: #16a34a !important; /* Green color for credit */
+}
+
+/* Specific text color classes for accounting */
+.text-red-600 {
+  color: #dc2626 !important;
+}
+
+.text-green-600 {
+  color: #16a34a !important;
+}
+
+/* Additional red and green color variations */
+.text-red-700 {
+  color: #b91c1c !important;
+}
+
+.text-green-700 {
+  color: #15803d !important;
+}
+
+.text-red-500 {
+  color: #ef4444 !important;
+}
+
+.text-green-500 {
+  color: #22c55e !important;
+}
+
+/* Ensure all debit amounts are red */
+[data-debit], .debit, .dr {
+  color: #dc2626 !important;
+}
+
+/* Ensure all credit amounts are green */
+[data-credit], .credit, .cr {
+  color: #16a34a !important;
 }
