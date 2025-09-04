@@ -149,6 +149,9 @@ export async function POST(request) {
     // For CUSTOMER_ACCOUNT: Payment received (CREDIT) reduces what they owe us
     const closingBalance = openingBalance - parseFloat(amount);
 
+    // Use the receiving date for the ledger entry
+    const receivingDate = new Date(date);
+
     // Create ledger entry for the receiving
     const receivingLedgerEntry = await prisma.ledger.create({
       data: {
@@ -160,7 +163,9 @@ export async function POST(request) {
         referenceId: Date.now(), // Simple unique ID
         referenceType: 'PAYMENT_FROM_CUSTOMER',
         opening_balance: parseFloat(openingBalance.toFixed(2)),
-        closing_balance: parseFloat(closingBalance.toFixed(2))
+        closing_balance: parseFloat(closingBalance.toFixed(2)),
+        createdAt: receivingDate,
+        updatedAt: receivingDate
       }
     });
 

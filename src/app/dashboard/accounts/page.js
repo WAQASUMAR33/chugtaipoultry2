@@ -426,13 +426,18 @@ export default function AccountsPage() {
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
-                                 const data = {
-                   name: formData.get('name'),
-                   phone: formData.get('phone'),
-                   address: formData.get('address'),
-                   type: formData.get('type'),
-                   balance: formData.get('balance')
-                 };
+                const data = {
+                  name: formData.get('name'),
+                  phone: formData.get('phone'),
+                  address: formData.get('address'),
+                  type: formData.get('type')
+                };
+                
+                // Only include balance when creating new account
+                if (!editingAccount) {
+                  data.balance = formData.get('balance');
+                }
+                
                 handleFormSubmit(data);
               }} className="space-y-4">
                 {/* Account Name */}
@@ -495,20 +500,25 @@ export default function AccountsPage() {
                    />
                  </div>
 
-                 {/* Balance */}
-                 <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                       Balance (PKR)
+                 {/* Balance - Only show when creating new account */}
+                 {!editingAccount && (
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                       Initial Balance (PKR)
                      </label>
-                   <input
-                     type="number"
-                     name="balance"
-                     step="0.01"
-                     defaultValue={editingAccount?.balance || 0}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
-                     placeholder="Enter balance"
-                   />
-                 </div>
+                     <input
+                       type="number"
+                       name="balance"
+                       step="0.01"
+                       defaultValue={0}
+                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
+                       placeholder="Enter initial balance (optional)"
+                     />
+                     <p className="text-xs text-gray-500 mt-1">
+                       Note: Balance can only be set when creating the account. After creation, balance changes through transactions only.
+                     </p>
+                   </div>
+                 )}
 
                 {/* Form Actions */}
                 <div className="flex justify-end space-x-3 pt-4">

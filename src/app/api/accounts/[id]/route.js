@@ -45,7 +45,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, address, type, balance } = body;
+    const { name, phone, address, type } = body;
 
     if (!name || !type) {
       return NextResponse.json(
@@ -54,14 +54,15 @@ export async function PUT(request, { params }) {
       );
     }
 
+    // Note: Balance is not editable - it's calculated from ledger entries
     const account = await prisma.account.update({
       where: { id: parseInt(id) },
       data: {
         name,
         phone,
         address,
-        type,
-        balance: parseFloat(balance || 0)
+        type
+        // balance is intentionally excluded - it should only change through transactions
       }
     });
 

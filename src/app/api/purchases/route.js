@@ -142,7 +142,9 @@ export async function POST(request) {
         referenceId: purchase.id,
         referenceType: 'PURCHASE',
         opening_balance: parseFloat(openingBalance.toFixed(2)),
-        closing_balance: parseFloat(purchaseClosingBalance.toFixed(2))
+        closing_balance: parseFloat(purchaseClosingBalance.toFixed(2)),
+        createdAt: purchaseDate,
+        updatedAt: purchaseDate
       }
     });
 
@@ -159,7 +161,9 @@ export async function POST(request) {
           referenceId: purchase.id,
           referenceType: 'PURCHASE',
           opening_balance: parseFloat(purchaseClosingBalance.toFixed(2)),
-          closing_balance: parseFloat(paymentClosingBalance.toFixed(2))
+          closing_balance: parseFloat(paymentClosingBalance.toFixed(2)),
+          createdAt: purchaseDate,
+          updatedAt: purchaseDate
         }
       });
     }

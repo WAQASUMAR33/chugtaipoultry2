@@ -149,6 +149,9 @@ export async function POST(request) {
     // For PARTY_ACCOUNT: Payment (DEBIT) reduces what we owe them
     const closingBalance = openingBalance - parseFloat(amount);
 
+    // Use the payment date for the ledger entry
+    const paymentDate = new Date(date);
+
     // Create ledger entry for the payment
     const paymentLedgerEntry = await prisma.ledger.create({
       data: {
@@ -160,7 +163,9 @@ export async function POST(request) {
         referenceId: Date.now(), // Simple unique ID
         referenceType: 'PAYMENT_TO_PARTY',
         opening_balance: parseFloat(openingBalance.toFixed(2)),
-        closing_balance: parseFloat(closingBalance.toFixed(2))
+        closing_balance: parseFloat(closingBalance.toFixed(2)),
+        createdAt: paymentDate,
+        updatedAt: paymentDate
       }
     });
 

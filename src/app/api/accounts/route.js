@@ -75,15 +75,38 @@ export async function POST(request) {
       );
     }
 
+    const initialBalance = parseFloat(balance || 0);
+    
     const account = await prisma.account.create({
       data: {
         name,
         phone,
         address,
         type,
-        balance: parseFloat(balance || 0)
+        balance: initialBalance
       }
     });
+
+    // Create initial balance ledger entry if balance is not zero
+    if (initialBalance !== 0) {
+      const currentDate = new Date();
+      
+      await prisma.ledger.create({
+        data: {
+          accountId: account.id,
+          drAmount: initialBalance > 0 ? initialBalance : 0,
+          crAmount: initialBalance < 0 ? Math.abs(initialBalance) : 0,
+          details: `Initial balance for account: ${account.name}`,
+          type: 'INITIAL_BALANCE',
+          referenceId: account.id,
+          referenceType: 'ACCOUNT_CREATION',
+          opening_balance: 0,
+          closing_balance: initialBalance,
+          createdAt: currentDate,
+          updatedAt: currentDate
+        }
+      });
+    }
 
     return NextResponse.json(account, { status: 201 });
   } catch (error) {

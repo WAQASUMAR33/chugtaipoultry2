@@ -16,8 +16,8 @@ model Ledger {
   details         String?
   opening_balance Float    @default(0)
   closing_balance Float    @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime
+  updatedAt       DateTime
   referenceId     Int?
   referenceType   String?
   account         Account  @relation(fields: [accountId], references: [id])
