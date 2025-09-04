@@ -48,8 +48,7 @@ export async function GET(request) {
          }
        },
              orderBy: [
-        { createdAt: 'desc' }, // Sort by date descending (newest first)
-        { id: 'desc' }         // Then by ID to break ties
+        { id: 'desc' }         // Sort by ID descending (newest first)
       ],
        skip,
        take: limit
