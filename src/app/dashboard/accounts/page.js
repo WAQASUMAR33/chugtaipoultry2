@@ -842,16 +842,20 @@ export default function AccountsPage() {
                        <tbody className="bg-white divide-y divide-gray-200">
                          {(() => {
                            let balance = 0;
-                           const entries = [...(viewingLedger.ledgers || [])].reverse(); // Start from oldest
+                           // Since API now returns newest first, we need to reverse to calculate running balance from oldest
+                           const entriesOldestFirst = [...(viewingLedger.ledgers || [])].reverse();
                            
-                           return entries.map(entry => {
+                           const entriesWithBalance = entriesOldestFirst.map(entry => {
                              if (entry.drAmount > 0) {
                                balance -= entry.drAmount;
                              } else {
                                balance += entry.crAmount;
                              }
                              return { ...entry, runningBalance: balance };
-                           }).reverse(); // Show newest first
+                           });
+                           
+                           // Reverse back to show newest first (which is what we want for display)
+                           return entriesWithBalance.reverse();
                          })().map((entry, index) => (
                            <tr key={entry.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

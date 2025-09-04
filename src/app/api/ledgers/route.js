@@ -47,10 +47,10 @@ export async function GET(request) {
            }
          }
        },
-       orderBy: [
-         { createdAt: 'asc' },  // Sort by date ascending (oldest first)
-         { id: 'asc' }          // Then by ID to break ties
-       ],
+             orderBy: [
+        { createdAt: 'desc' }, // Sort by date descending (newest first)
+        { id: 'desc' }         // Then by ID to break ties
+      ],
        skip,
        take: limit
      });
