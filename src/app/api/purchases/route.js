@@ -36,7 +36,7 @@ export async function GET(request) {
           }
         }
       },
-      orderBy: { date: 'desc' }
+      orderBy: { id: 'desc' }
     });
 
     return NextResponse.json(purchases);

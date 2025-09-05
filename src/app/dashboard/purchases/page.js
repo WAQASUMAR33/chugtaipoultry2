@@ -13,6 +13,7 @@ export default function PurchasesPage() {
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [accountsError, setAccountsError] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   
@@ -165,7 +166,10 @@ export default function PurchasesPage() {
   };
 
   const handleFormSubmit = async (formData) => {
+    if (isSubmitting) return; // Prevent multiple submissions
+    
     try {
+      setIsSubmitting(true);
       const response = await fetch('/api/purchases', {
         method: 'POST',
         headers: {
@@ -185,6 +189,8 @@ export default function PurchasesPage() {
     } catch (error) {
       console.error('Error creating purchase:', error);
       alert('Failed to create purchase');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -840,7 +846,7 @@ export default function PurchasesPage() {
                       onChange={(e) => handleAccountChange(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 bg-white"
                       required
-                      disabled={isLoadingAccounts}
+                      disabled={isLoadingAccounts || isSubmitting}
                     >
                       <option value="">
                         {isLoadingAccounts ? 'Loading accounts...' : 'Select Party Account'}
@@ -881,6 +887,7 @@ export default function PurchasesPage() {
                        defaultValue={new Date().toISOString().split('T')[0]}
                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900"
                        required
+                       disabled={isSubmitting}
                      />
                    </div>
 
@@ -895,6 +902,7 @@ export default function PurchasesPage() {
                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
                        placeholder="Enter vehicle number (e.g., ABC-123)"
                        required
+                       disabled={isSubmitting}
                      />
                      <p className="text-xs text-gray-500 mt-1">
                        Vehicle number for this purchase delivery
@@ -916,6 +924,7 @@ export default function PurchasesPage() {
                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
                          placeholder="Enter weight"
                          required
+                         disabled={isSubmitting}
                                               />
                        <p className="text-xs text-gray-500 mt-1">
                          Weight in kilograms (e.g., 10 kg)
@@ -934,6 +943,7 @@ export default function PurchasesPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
                         placeholder="Enter rate"
                         required
+                        disabled={isSubmitting}
                       />
                                                 <p className="text-xs text-gray-500 mt-1">
                            Rate per kg (e.g., PKR 100 per kg)
@@ -991,6 +1001,7 @@ export default function PurchasesPage() {
                        onChange={handleFormInputChange}
                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
                        placeholder="Enter payment amount"
+                       disabled={isSubmitting}
                      />
                      <p className="text-xs text-gray-500 mt-1">
                        Payment made for this purchase (optional)
@@ -1019,15 +1030,35 @@ export default function PurchasesPage() {
                     <button
                       type="button"
                       onClick={closeForm}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      disabled={isSubmitting}
+                      className={`px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 ${
+                        isSubmitting 
+                          ? 'text-gray-400 bg-gray-50 cursor-not-allowed' 
+                          : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                      }`}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-800 border border-transparent rounded-lg hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-700"
+                      disabled={isSubmitting}
+                      className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700 flex items-center ${
+                        isSubmitting 
+                          ? 'bg-blue-600 cursor-not-allowed' 
+                          : 'bg-blue-800 hover:bg-blue-900'
+                      }`}
                     >
-                      Create Purchase
+                      {isSubmitting ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Purchase'
+                      )}
                     </button>
                   </div>
                 </form>
