@@ -38,7 +38,8 @@ export default function DashboardPage() {
       const response = await fetch('/api/sales');
       if (response.ok) {
         const data = await response.json();
-        setSales(data);
+        // Handle new pagination response format
+        setSales(data.sales || data);
       }
     } catch (error) {
       console.error('Error fetching sales:', error);
@@ -50,7 +51,8 @@ export default function DashboardPage() {
       const response = await fetch('/api/purchases');
       if (response.ok) {
         const data = await response.json();
-        setPurchases(data);
+        // Handle new pagination response format
+        setPurchases(data.purchases || data);
       }
     } catch (error) {
       console.error('Error fetching purchases:', error);
@@ -61,7 +63,7 @@ export default function DashboardPage() {
     const allTransactions = [];
     
     // Add sales
-    sales.forEach(sale => {
+    (sales || []).forEach(sale => {
       allTransactions.push({
         id: `sale-${sale.id}`,
         type: 'sale',
@@ -76,7 +78,7 @@ export default function DashboardPage() {
     });
     
     // Add purchases
-    purchases.forEach(purchase => {
+    (purchases || []).forEach(purchase => {
       allTransactions.push({
         id: `purchase-${purchase.id}`,
         type: 'purchase',
@@ -103,7 +105,7 @@ export default function DashboardPage() {
   }, [user, fetchSales, fetchPurchases]);
 
   useEffect(() => {
-    if (sales.length > 0 || purchases.length > 0) {
+    if ((sales || []).length > 0 || (purchases || []).length > 0) {
       createRecentActivity();
     }
   }, [sales, purchases, createRecentActivity]);
@@ -163,8 +165,8 @@ export default function DashboardPage() {
   }
 
   // Calculate totals for better performance
-  const totalSales = sales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-  const totalPurchases = purchases.reduce((sum, p) => sum + (p.totalManagment || 0), 0);
+  const totalSales = (sales || []).reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+  const totalPurchases = (purchases || []).reduce((sum, p) => sum + (p.totalManagment || 0), 0);
   const netRevenue = totalSales - totalPurchases;
 
   if (!user) {
@@ -236,7 +238,7 @@ export default function DashboardPage() {
              </div>
              <div>
                <p className="text-sm font-medium text-gray-500">Total Transactions</p>
-               <p className="text-2xl font-bold text-gray-900">{sales.length + purchases.length}</p>
+               <p className="text-2xl font-bold text-gray-900">{(sales || []).length + (purchases || []).length}</p>
              </div>
            </div>
          </div>

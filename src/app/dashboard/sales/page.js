@@ -22,6 +22,24 @@ export default function SalesPage() {
     endDate: '',
     searchTerm: ''
   });
+  
+  // Ordering state
+  const [orderByDate, setOrderByDate] = useState(false);
+  
+  // Pagination settings
+  const [pageSize, setPageSize] = useState(50);
+  const [showAll, setShowAll] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -45,14 +63,32 @@ export default function SalesPage() {
     checkAuth();
   }, [router]);
 
-  const fetchSales = async () => {
+  const fetchSales = useCallback(async (page = 1) => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/sales');
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: showAll ? '999999' : pageSize.toString()
+      });
+
+      if (filters.accountId && filters.accountId !== '') {
+        params.append('accountId', filters.accountId);
+      }
+      if (filters.startDate) {
+        params.append('startDate', filters.startDate);
+      }
+      if (filters.endDate) {
+        params.append('endDate', filters.endDate);
+      }
+      
+      const response = await fetch(`/api/sales?${params}`);
       if (response.ok) {
         const data = await response.json();
-        setSales(data);
-        setFilteredSales(data);
+        setSales(data.sales);
+        setFilteredSales(data.sales);
+        setPagination(data.pagination);
+        setCurrentPage(page);
       } else {
         console.error('Failed to fetch sales');
       }
@@ -61,7 +97,7 @@ export default function SalesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filters, pageSize, showAll]);
 
   const fetchCustomerAccounts = async () => {
     try {
@@ -84,46 +120,13 @@ export default function SalesPage() {
     }
   }, [user]);
 
-  // Filter function
-  const filterSales = useCallback(() => {
-    let filtered = [...sales];
-
-    // Filter by account
-    if (filters.accountId && filters.accountId !== 'ALL') {
-      filtered = filtered.filter(sale => 
-        sale.accountId === parseInt(filters.accountId)
-      );
-    }
-
-    // Filter by date range
-    if (filters.startDate) {
-      filtered = filtered.filter(sale => 
-        new Date(sale.date) >= new Date(filters.startDate)
-      );
-    }
-
-    if (filters.endDate) {
-      filtered = filtered.filter(sale => 
-        new Date(sale.date) <= new Date(filters.endDate)
-      );
-    }
-
-    // Filter by search term (account name or amount)
-    if (filters.searchTerm) {
-      const searchLower = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(sale => 
-        sale.account.name.toLowerCase().includes(searchLower) ||
-        (sale.totalAmount && sale.totalAmount.toString().includes(filters.searchTerm))
-      );
-    }
-
-    setFilteredSales(filtered);
-  }, [sales, filters]);
-
-  // Apply filters when sales or filters change
+  // Refetch sales when filters change
   useEffect(() => {
-    filterSales();
-  }, [filterSales]);
+    if (user) {
+      setCurrentPage(1);
+      fetchSales(1);
+    }
+  }, [filters, user]);
 
   // Handle filter changes
   const handleFilterChange = (key, value) => {
@@ -641,14 +644,65 @@ export default function SalesPage() {
             </div>
 
             <div className="flex justify-between items-center mt-4">
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Clear Filters
-              </button>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Clear Filters
+                </button>
+                
+                {/* Page Size Selector */}
+                <div className="flex items-center">
+                  <label htmlFor="pageSize" className="text-sm text-gray-700 mr-2">
+                    Show:
+                  </label>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(parseInt(e.target.value))}
+                    disabled={showAll}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                  >
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                    <option value={500}>500</option>
+                  </select>
+                  <span className="text-sm text-gray-500 ml-1">records</span>
+                </div>
+
+                {/* Show All Checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="showAll"
+                    checked={showAll}
+                    onChange={(e) => setShowAll(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="showAll" className="ml-2 text-sm text-gray-700">
+                    Show All Records
+                  </label>
+                </div>
+
+                {/* Ordering Checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="orderByDate"
+                    checked={orderByDate}
+                    onChange={(e) => setOrderByDate(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="orderByDate" className="ml-2 text-sm text-gray-700">
+                    Order by Date (Newest First)
+                  </label>
+                </div>
+              </div>
+              
               <span className="text-sm text-gray-500">
-                Showing {filteredSales.length} of {sales.length} sales
+                Showing {sales.length} of {pagination.totalCount} sales
               </span>
             </div>
           </div>
@@ -658,7 +712,7 @@ export default function SalesPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Sales ({filteredSales.length})
+              Sales ({pagination.totalCount})
             </h2>
           </div>
 
@@ -667,7 +721,7 @@ export default function SalesPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-2 text-gray-500">Loading sales...</p>
             </div>
-          ) : filteredSales.length === 0 ? (
+          ) : sales.length === 0 ? (
             <div className="p-8 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -712,7 +766,7 @@ export default function SalesPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredSales.map((sale) => (
+                  {sales.map((sale) => (
                     <tr key={sale.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(sale.date).toLocaleDateString('en-US', {
@@ -770,6 +824,41 @@ export default function SalesPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {!showAll && pagination.totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Page {pagination.currentPage} of {pagination.totalPages}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => fetchSales(pagination.currentPage - 1)}
+                    disabled={!pagination.hasPrevPage}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg ${
+                      pagination.hasPrevPage
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => fetchSales(pagination.currentPage + 1)}
+                    disabled={!pagination.hasNextPage}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg ${
+                      pagination.hasNextPage
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

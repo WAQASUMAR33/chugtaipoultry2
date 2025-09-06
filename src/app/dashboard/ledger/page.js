@@ -20,6 +20,13 @@ export default function LedgerPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // Ordering state
+  const [orderByDate, setOrderByDate] = useState(false);
+  
+  // Pagination settings
+  const [pageSize, setPageSize] = useState(50);
+  const [showAll, setShowAll] = useState(false);
 
   // Pagination state
   const [pagination, setPagination] = useState({
@@ -56,7 +63,7 @@ export default function LedgerPage() {
       setIsLoading(true);
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: '50'
+        limit: showAll ? '999999' : pageSize.toString()
       });
 
       if (selectedAccount !== 'ALL') {
@@ -70,6 +77,9 @@ export default function LedgerPage() {
       }
       if (endDate) {
         params.append('endDate', endDate);
+      }
+      if (orderByDate) {
+        params.append('orderByDate', 'true');
       }
 
       const response = await fetch(`/api/ledgers?${params}`);
@@ -108,6 +118,13 @@ export default function LedgerPage() {
       fetchAccounts();
     }
   }, [user]);
+
+  // Refetch ledgers when ordering or pagination settings change
+  useEffect(() => {
+    if (user) {
+      fetchLedgers(1);
+    }
+  }, [orderByDate, pageSize, showAll]);
 
   useEffect(() => {
     if (user) {
@@ -403,6 +420,59 @@ export default function LedgerPage() {
               />
             </div>
           </div>
+          
+          {/* Pagination and Ordering Controls */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Page Size Selector */}
+              <div className="flex items-center">
+                <label htmlFor="pageSize" className="text-sm text-gray-700 mr-2">
+                  Show:
+                </label>
+                <select
+                  id="pageSize"
+                  value={pageSize}
+                  onChange={(e) => setPageSize(parseInt(e.target.value))}
+                  disabled={showAll}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                >
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                  <option value={500}>500</option>
+                </select>
+                <span className="text-sm text-gray-500 ml-1">records</span>
+              </div>
+
+              {/* Show All Checkbox */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="showAll"
+                  checked={showAll}
+                  onChange={(e) => setShowAll(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="showAll" className="ml-2 text-sm text-gray-700">
+                  Show All Records
+                </label>
+              </div>
+
+              {/* Ordering Checkbox */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="orderByDate"
+                  checked={orderByDate}
+                  onChange={(e) => setOrderByDate(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="orderByDate" className="ml-2 text-sm text-gray-700">
+                  Order by Date (Newest First)
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
                  {/* Ledger List */}
@@ -578,8 +648,8 @@ export default function LedgerPage() {
                  </div>
                </div>
 
-               {/* Pagination */}
-               {pagination.totalPages > 1 && (
+          {/* Pagination */}
+          {!showAll && pagination.totalPages > 1 && (
                 <div className="px-6 py-4 border-t border-gray-200">
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-gray-700">

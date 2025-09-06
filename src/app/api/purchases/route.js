@@ -10,6 +10,9 @@ export async function GET(request) {
     const accountId = searchParams.get('accountId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const skip = (page - 1) * limit;
 
     let where = {};
     
@@ -24,6 +27,9 @@ export async function GET(request) {
       };
     }
 
+    // Get total count for pagination
+    const totalCount = await prisma.purchase.count({ where });
+
     const purchases = await prisma.purchase.findMany({
       where,
       include: {
@@ -36,10 +42,21 @@ export async function GET(request) {
           }
         }
       },
-      orderBy: { id: 'desc' }
+      orderBy: { id: 'desc' },
+      skip,
+      take: limit
     });
 
-    return NextResponse.json(purchases);
+    return NextResponse.json({
+      purchases,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount,
+        hasNextPage: page * limit < totalCount,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     console.error('Error fetching purchases:', error);
     return NextResponse.json(

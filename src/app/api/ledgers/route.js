@@ -11,6 +11,7 @@ export async function GET(request) {
     const type = searchParams.get('type');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const orderByDate = searchParams.get('orderByDate') === 'true';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
     const skip = (page - 1) * limit;
@@ -47,7 +48,9 @@ export async function GET(request) {
            }
          }
        },
-             orderBy: [
+             orderBy: orderByDate ? [
+        { createdAt: 'desc' }  // Sort by date descending (newest first)
+      ] : [
         { id: 'desc' }         // Sort by ID descending (newest first)
       ],
        skip,

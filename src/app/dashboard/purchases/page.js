@@ -24,6 +24,24 @@ export default function PurchasesPage() {
     endDate: '',
     searchTerm: ''
   });
+  
+  // Ordering state
+  const [orderByDate, setOrderByDate] = useState(false);
+  
+  // Pagination settings
+  const [pageSize, setPageSize] = useState(50);
+  const [showAll, setShowAll] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -47,18 +65,36 @@ export default function PurchasesPage() {
     checkAuth();
   }, [router]);
 
-  const fetchPurchases = useCallback(async () => {
+  const fetchPurchases = useCallback(async (page = 1) => {
     try {
       setIsLoading(true);
       console.log('Fetching purchases...');
-      const response = await fetch('/api/purchases');
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: showAll ? '999999' : pageSize.toString()
+      });
+
+      if (filters.accountId && filters.accountId !== '') {
+        params.append('accountId', filters.accountId);
+      }
+      if (filters.startDate) {
+        params.append('startDate', filters.startDate);
+      }
+      if (filters.endDate) {
+        params.append('endDate', filters.endDate);
+      }
+      
+      const response = await fetch(`/api/purchases?${params}`);
       console.log('Purchases response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
         console.log('Purchases fetched:', data);
-        setPurchases(data);
-        setFilteredPurchases(data);
+        setPurchases(data.purchases);
+        setFilteredPurchases(data.purchases);
+        setPagination(data.pagination);
+        setCurrentPage(page);
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch purchases:', response.status, errorText);
@@ -68,7 +104,7 @@ export default function PurchasesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filters, pageSize, showAll]);
 
   const fetchPartyAccounts = useCallback(async () => {
     try {
@@ -102,47 +138,13 @@ export default function PurchasesPage() {
     }
   }, [user]);
 
-  // Filter function
-  const filterPurchases = useCallback(() => {
-    let filtered = [...purchases];
-
-    // Filter by account
-    if (filters.accountId && filters.accountId !== 'ALL') {
-      filtered = filtered.filter(purchase => 
-        purchase.accountId === parseInt(filters.accountId)
-      );
-    }
-
-    // Filter by date range
-    if (filters.startDate) {
-      filtered = filtered.filter(purchase => 
-        new Date(purchase.date) >= new Date(filters.startDate)
-      );
-    }
-
-    if (filters.endDate) {
-      filtered = filtered.filter(purchase => 
-        new Date(purchase.date) <= new Date(filters.endDate)
-      );
-    }
-
-    // Filter by search term (account name, vehicle number, or details)
-    if (filters.searchTerm) {
-      const searchLower = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(purchase => 
-        purchase.account.name.toLowerCase().includes(searchLower) ||
-        purchase.vehicleNumber.toLowerCase().includes(searchLower) ||
-        (purchase.totalManagment && purchase.totalManagment.toString().includes(filters.searchTerm))
-      );
-    }
-
-    setFilteredPurchases(filtered);
-  }, [purchases, filters]);
-
-  // Apply filters when purchases or filters change
+  // Refetch purchases when filters change
   useEffect(() => {
-    filterPurchases();
-  }, [filterPurchases]);
+    if (user) {
+      setCurrentPage(1);
+      fetchPurchases(1);
+    }
+  }, [filters, user]);
 
   // Handle filter changes
   const handleFilterChange = (key, value) => {
@@ -662,14 +664,65 @@ export default function PurchasesPage() {
             </div>
 
             <div className="flex justify-between items-center mt-4">
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Clear Filters
-              </button>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Clear Filters
+                </button>
+                
+                {/* Page Size Selector */}
+                <div className="flex items-center">
+                  <label htmlFor="pageSize" className="text-sm text-gray-700 mr-2">
+                    Show:
+                  </label>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(parseInt(e.target.value))}
+                    disabled={showAll}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                  >
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                    <option value={500}>500</option>
+                  </select>
+                  <span className="text-sm text-gray-500 ml-1">records</span>
+                </div>
+
+                {/* Show All Checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="showAll"
+                    checked={showAll}
+                    onChange={(e) => setShowAll(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="showAll" className="ml-2 text-sm text-gray-700">
+                    Show All Records
+                  </label>
+                </div>
+
+                {/* Ordering Checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="orderByDate"
+                    checked={orderByDate}
+                    onChange={(e) => setOrderByDate(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="orderByDate" className="ml-2 text-sm text-gray-700">
+                    Order by Date (Newest First)
+                  </label>
+                </div>
+              </div>
+              
               <span className="text-sm text-gray-500">
-                Showing {filteredPurchases.length} of {purchases.length} purchases
+                Showing {purchases.length} of {pagination.totalCount} purchases
               </span>
             </div>
           </div>
@@ -679,7 +732,7 @@ export default function PurchasesPage() {
          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Purchases ({filteredPurchases.length})
+              Purchases ({pagination.totalCount})
             </h2>
           </div>
 
@@ -688,7 +741,7 @@ export default function PurchasesPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-2 text-gray-500">Loading purchases...</p>
             </div>
-          ) : filteredPurchases.length === 0 ? (
+          ) : purchases.length === 0 ? (
             <div className="p-8 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -736,7 +789,7 @@ export default function PurchasesPage() {
                    </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredPurchases.map((purchase) => (
+                  {purchases.map((purchase) => (
                     <tr key={purchase.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(purchase.date).toLocaleDateString('en-US', {
@@ -797,6 +850,41 @@ export default function PurchasesPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {!showAll && pagination.totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Page {pagination.currentPage} of {pagination.totalPages}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => fetchPurchases(pagination.currentPage - 1)}
+                    disabled={!pagination.hasPrevPage}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg ${
+                      pagination.hasPrevPage
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => fetchPurchases(pagination.currentPage + 1)}
+                    disabled={!pagination.hasNextPage}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg ${
+                      pagination.hasNextPage
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

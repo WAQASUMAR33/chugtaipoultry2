@@ -10,6 +10,9 @@ export async function GET(request) {
     const accountId = searchParams.get('accountId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const skip = (page - 1) * limit;
 
     let where = {};
     
@@ -24,6 +27,9 @@ export async function GET(request) {
       };
     }
 
+    // Get total count for pagination
+    const totalCount = await prisma.sale.count({ where });
+
     const sales = await prisma.sale.findMany({
       where,
       include: {
@@ -36,10 +42,21 @@ export async function GET(request) {
           }
         }
       },
-      orderBy: { date: 'desc' }
+      orderBy: { id: 'desc' },
+      skip,
+      take: limit
     });
 
-    return NextResponse.json(sales);
+    return NextResponse.json({
+      sales,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount,
+        hasNextPage: page * limit < totalCount,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     console.error('Error fetching sales:', error);
     return NextResponse.json(
