@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma, withRetry } from '../../../lib/prisma';
 
 // GET all purchases with optional filtering
 export async function GET(request) {
@@ -28,23 +26,27 @@ export async function GET(request) {
     }
 
     // Get total count for pagination
-    const totalCount = await prisma.purchase.count({ where });
+    const totalCount = await withRetry(async () => {
+      return await prisma.purchase.count({ where });
+    });
 
-    const purchases = await prisma.purchase.findMany({
-      where,
-      include: {
-        account: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            balance: true
+    const purchases = await withRetry(async () => {
+      return await prisma.purchase.findMany({
+        where,
+        include: {
+          account: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              balance: true
+            }
           }
-        }
-      },
-      orderBy: { id: 'desc' },
-      skip,
-      take: limit
+        },
+        orderBy: { id: 'desc' },
+        skip,
+        take: limit
+      });
     });
 
     return NextResponse.json({

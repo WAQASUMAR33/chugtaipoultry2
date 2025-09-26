@@ -11,6 +11,8 @@ export default function PurchasesPage() {
   const [filteredPurchases, setFilteredPurchases] = useState([]);
   const [partyAccounts, setPartyAccounts] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingPurchase, setEditingPurchase] = useState(null);
+  const [formPrefillData, setFormPrefillData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -125,7 +127,7 @@ export default function PurchasesPage() {
       }
     } catch (error) {
       console.error('Error fetching party accounts:', error);
-      setAccountsError('Network error while fetching accounts');
+      setAccountsError(`Network error: ${error.message}. Please check your connection and try again.`);
     } finally {
       setIsLoadingAccounts(false);
     }
@@ -164,7 +166,58 @@ export default function PurchasesPage() {
   };
 
   const handleAddPurchase = () => {
+    setEditingPurchase(null);
+    setFormPrefillData(null);
+    setSelectedAccount(null);
     setShowForm(true);
+  };
+
+  const handleEditPurchase = async (purchase) => {
+    try {
+      // Delete the original purchase and reset balance
+      const response = await fetch(`/api/purchases/${purchase.id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Refresh data first
+        await fetchPurchases();
+        await fetchPartyAccounts();
+        
+        // Fetch the specific account to get the updated balance
+        try {
+          const accountResponse = await fetch(`/api/accounts/${purchase.accountId}`);
+          if (accountResponse.ok) {
+            const updatedAccount = await accountResponse.json();
+            setSelectedAccount(updatedAccount);
+          } else {
+            setSelectedAccount(purchase.account);
+          }
+        } catch (error) {
+          console.error('Error fetching updated account:', error);
+          setSelectedAccount(purchase.account);
+        }
+        
+        // Open add form with old data pre-filled
+        setEditingPurchase(null); // This is now a new purchase
+        setShowForm(true);
+        
+        // Pre-fill form data will be handled in the form component
+        setFormPrefillData({
+          accountId: purchase.accountId,
+          date: new Date(purchase.date).toISOString().split('T')[0],
+          vehicleNumber: purchase.vehicleNumber,
+          weight: purchase.weight,
+          rate: purchase.rate,
+          payment: purchase.payment
+        });
+      } else {
+        alert('Failed to delete original purchase');
+      }
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      alert('Failed to delete original purchase');
+    }
   };
 
   const handleFormSubmit = async (formData) => {
@@ -172,8 +225,10 @@ export default function PurchasesPage() {
     
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/purchases', {
-        method: 'POST',
+      const url = editingPurchase ? `/api/purchases/${editingPurchase.id}` : '/api/purchases';
+      const method = editingPurchase ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -182,15 +237,16 @@ export default function PurchasesPage() {
 
       if (response.ok) {
         setShowForm(false);
+        setEditingPurchase(null);
         fetchPurchases();
         fetchPartyAccounts(); // Refresh accounts to get updated balances
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to create purchase');
+        alert(error.error || (editingPurchase ? 'Failed to update purchase' : 'Failed to create purchase'));
       }
     } catch (error) {
-      console.error('Error creating purchase:', error);
-      alert('Failed to create purchase');
+      console.error(editingPurchase ? 'Error updating purchase:' : 'Error creating purchase:', error);
+      alert(editingPurchase ? 'Failed to update purchase' : 'Failed to create purchase');
     } finally {
       setIsSubmitting(false);
     }
@@ -198,6 +254,8 @@ export default function PurchasesPage() {
 
   const closeForm = () => {
     setShowForm(false);
+    setEditingPurchase(null);
+    setFormPrefillData(null);
     setSelectedAccount(null);
   };
 
@@ -596,15 +654,16 @@ export default function PurchasesPage() {
            </div>
          </div>
 
-         {/* Filter Section */}
-         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        {/* Filter Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">Filter Purchases</h3>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 sm:p-6">
+            {/* On small screens, allow horizontal scroll within the filter row */}
+            <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
               {/* Account Filter */}
-              <div>
+              <div className="min-w-[240px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Account
                 </label>
@@ -623,7 +682,7 @@ export default function PurchasesPage() {
               </div>
 
               {/* Start Date Filter */}
-              <div>
+              <div className="min-w-[220px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Start Date
                 </label>
@@ -636,7 +695,7 @@ export default function PurchasesPage() {
               </div>
 
               {/* End Date Filter */}
-              <div>
+              <div className="min-w-[220px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   End Date
                 </label>
@@ -649,7 +708,7 @@ export default function PurchasesPage() {
               </div>
 
               {/* Search Filter */}
-              <div>
+              <div className="min-w-[240px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Search
                 </label>
@@ -663,8 +722,8 @@ export default function PurchasesPage() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center mt-4">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-4">
+              <div className="flex items-center gap-3 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
                 <button
                   onClick={clearFilters}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -752,7 +811,7 @@ export default function PurchasesPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -836,15 +895,26 @@ export default function PurchasesPage() {
                          </span>
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                         <button
-                           onClick={() => printPurchaseBill(purchase)}
-                           className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center mx-auto"
-                         >
-                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                           </svg>
-                           Print Bill
-                         </button>
+                        <div className="flex items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleEditPurchase(purchase)}
+                            className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2m-1 14v-4m0 0l3-3m-3 3l-3-3M5 13a7 7 0 1114 0 7 7 0 01-14 0z" />
+                            </svg>
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => printPurchaseBill(purchase)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            Print
+                          </button>
+                        </div>
                        </td>
                     </tr>
                   ))}
@@ -935,6 +1005,7 @@ export default function PurchasesPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 bg-white"
                       required
                       disabled={isLoadingAccounts || isSubmitting}
+                      defaultValue={formPrefillData?.accountId || ''}
                     >
                       <option value="">
                         {isLoadingAccounts ? 'Loading accounts...' : 'Select Party Account'}
@@ -969,14 +1040,14 @@ export default function PurchasesPage() {
                      <label className="block text-sm font-medium text-gray-700 mb-1">
                        Purchase Date *
                      </label>
-                     <input
-                       type="date"
-                       name="date"
-                       defaultValue={new Date().toISOString().split('T')[0]}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900"
-                       required
-                       disabled={isSubmitting}
-                     />
+                    <input
+                      type="date"
+                      name="date"
+                      defaultValue={formPrefillData?.date || new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900"
+                      required
+                      disabled={isSubmitting}
+                    />
                    </div>
 
                    {/* Vehicle Number */}
@@ -984,14 +1055,15 @@ export default function PurchasesPage() {
                      <label className="block text-sm font-medium text-gray-700 mb-1">
                        Vehicle Number *
                      </label>
-                     <input
-                       type="text"
-                       name="vehicleNumber"
-                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
-                       placeholder="Enter vehicle number (e.g., ABC-123)"
-                       required
-                       disabled={isSubmitting}
-                     />
+                    <input
+                      type="text"
+                      name="vehicleNumber"
+                      defaultValue={formPrefillData?.vehicleNumber || ''}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
+                      placeholder="Enter vehicle number (e.g., ABC-123)"
+                      required
+                      disabled={isSubmitting}
+                    />
                      <p className="text-xs text-gray-500 mt-1">
                        Vehicle number for this purchase delivery
                      </p>
@@ -1003,16 +1075,17 @@ export default function PurchasesPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Weight (kg) *
                       </label>
-                                             <input
-                         type="number"
-                         name="weight"
-                         step="0.01"
-                         min="0"
-                         onChange={handleFormInputChange}
-                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
-                         placeholder="Enter weight"
-                         required
-                         disabled={isSubmitting}
+                      <input
+                        type="number"
+                        name="weight"
+                        step="0.01"
+                        min="0"
+                        onChange={handleFormInputChange}
+                        defaultValue={formPrefillData?.weight || ''}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
+                        placeholder="Enter weight"
+                        required
+                        disabled={isSubmitting}
                                               />
                        <p className="text-xs text-gray-500 mt-1">
                          Weight in kilograms (e.g., 10 kg)
@@ -1022,17 +1095,18 @@ export default function PurchasesPage() {
                                            <label className="block text-sm font-medium text-gray-700 mb-1">
                        Rate (PKR) *
                      </label>
-                                         <input
-                        type="number"
-                        name="rate"
-                        step="0.01"
-                        min="0"
-                        onChange={handleFormInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
-                        placeholder="Enter rate"
-                        required
-                        disabled={isSubmitting}
-                      />
+                    <input
+                       type="number"
+                       name="rate"
+                       step="0.01"
+                       min="0"
+                       onChange={handleFormInputChange}
+                       defaultValue={formPrefillData?.rate || ''}
+                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
+                       placeholder="Enter rate"
+                       required
+                       disabled={isSubmitting}
+                     />
                                                 <p className="text-xs text-gray-500 mt-1">
                            Rate per kg (e.g., PKR 100 per kg)
                          </p>
@@ -1044,12 +1118,13 @@ export default function PurchasesPage() {
                                          <label className="block text-sm font-medium text-gray-700 mb-1">
                        Total Amount (PKR) *
                      </label>
-                                         <input
+                    <input
                        type="number"
                        name="totalManagment"
                        step="0.01"
                        min="0"
                        readOnly
+                       value={formPrefillData ? (Number(formPrefillData.weight) * Number(formPrefillData.rate)).toFixed(2) : undefined}
                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-900"
                        placeholder="Auto-calculated"
                      />
@@ -1081,12 +1156,13 @@ export default function PurchasesPage() {
                                          <label className="block text-sm font-medium text-gray-700 mb-1">
                        Payment Made (PKR)
                      </label>
-                                         <input
+                    <input
                        type="number"
                        name="payment"
                        step="0.01"
                        min="0"
                        onChange={handleFormInputChange}
+                       defaultValue={formPrefillData?.payment || ''}
                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
                        placeholder="Enter payment amount"
                        disabled={isSubmitting}
@@ -1101,7 +1177,7 @@ export default function PurchasesPage() {
                      <label className="block text-sm font-medium text-gray-700 mb-1">
                        Final Balance Owed (PKR)
                      </label>
-                     <input
+                    <input
                        type="number"
                        name="balance"
                        step="0.01"
@@ -1142,7 +1218,7 @@ export default function PurchasesPage() {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          Creating...
+                          Saving...
                         </>
                       ) : (
                         'Create Purchase'

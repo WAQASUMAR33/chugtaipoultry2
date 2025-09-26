@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma, withRetry } from '../../../../lib/prisma';
 
 export async function POST(request) {
   try {
@@ -39,20 +37,22 @@ export async function POST(request) {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        fullName,
-        email,
-        password: hashedPassword,
-        role: 'USER', // Default role for new users
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      }
+    const user = await withRetry(async () => {
+      return await prisma.user.create({
+        data: {
+          fullName,
+          email,
+          password: hashedPassword,
+          role: 'USER', // Default role for new users
+        },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        }
+      });
     });
 
     return NextResponse.json(

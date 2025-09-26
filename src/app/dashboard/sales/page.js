@@ -11,6 +11,8 @@ export default function SalesPage() {
   const [filteredSales, setFilteredSales] = useState([]);
   const [customerAccounts, setCustomerAccounts] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingSale, setEditingSale] = useState(null);
+  const [formPrefillData, setFormPrefillData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
@@ -146,7 +148,57 @@ export default function SalesPage() {
   };
 
   const handleAddSale = () => {
+    setEditingSale(null);
+    setFormPrefillData(null);
+    setSelectedAccount(null);
     setShowForm(true);
+  };
+
+  const handleEditSale = async (sale) => {
+    try {
+      // Delete the original sale and reset balance
+      const response = await fetch(`/api/sales/${sale.id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Refresh data first
+        await fetchSales();
+        await fetchCustomerAccounts();
+        
+        // Fetch the specific account to get the updated balance
+        try {
+          const accountResponse = await fetch(`/api/accounts/${sale.accountId}`);
+          if (accountResponse.ok) {
+            const updatedAccount = await accountResponse.json();
+            setSelectedAccount(updatedAccount);
+          } else {
+            setSelectedAccount(sale.account);
+          }
+        } catch (error) {
+          console.error('Error fetching updated account:', error);
+          setSelectedAccount(sale.account);
+        }
+        
+        // Open add form with old data pre-filled
+        setEditingSale(null); // This is now a new sale
+        setShowForm(true);
+        
+        // Pre-fill form data will be handled in the form component
+        setFormPrefillData({
+          accountId: sale.accountId,
+          date: new Date(sale.date).toISOString().split('T')[0],
+          weight: sale.weight,
+          rate: sale.rate,
+          payment: sale.payment
+        });
+      } else {
+        alert('Failed to delete original sale');
+      }
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      alert('Failed to delete original sale');
+    }
   };
 
   const handleFormSubmit = async (formData) => {
@@ -154,8 +206,10 @@ export default function SalesPage() {
     
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/sales', {
-        method: 'POST',
+      const url = editingSale ? `/api/sales/${editingSale.id}` : '/api/sales';
+      const method = editingSale ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -164,15 +218,16 @@ export default function SalesPage() {
 
       if (response.ok) {
         setShowForm(false);
+        setEditingSale(null);
         fetchSales();
         fetchCustomerAccounts(); // Refresh accounts to get updated balances
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to create sale');
+        alert(error.error || (editingSale ? 'Failed to update sale' : 'Failed to create sale'));
       }
     } catch (error) {
-      console.error('Error creating sale:', error);
-      alert('Failed to create sale');
+      console.error(editingSale ? 'Error updating sale:' : 'Error creating sale:', error);
+      alert(editingSale ? 'Failed to update sale' : 'Failed to create sale');
     } finally {
       setIsSubmitting(false);
     }
@@ -180,6 +235,8 @@ export default function SalesPage() {
 
   const closeForm = () => {
     setShowForm(false);
+    setEditingSale(null);
+    setFormPrefillData(null);
     setSelectedAccount(null);
   };
 
@@ -581,10 +638,10 @@ export default function SalesPage() {
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">Filter Sales</h3>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
               {/* Account Filter */}
-              <div>
+              <div className="min-w-[240px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Account
                 </label>
@@ -603,7 +660,7 @@ export default function SalesPage() {
               </div>
 
               {/* Start Date Filter */}
-              <div>
+              <div className="min-w-[220px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Start Date
                 </label>
@@ -616,7 +673,7 @@ export default function SalesPage() {
               </div>
 
               {/* End Date Filter */}
-              <div>
+              <div className="min-w-[220px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   End Date
                 </label>
@@ -629,7 +686,7 @@ export default function SalesPage() {
               </div>
 
               {/* Search Filter */}
-              <div>
+              <div className="min-w-[240px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Search
                 </label>
@@ -643,8 +700,8 @@ export default function SalesPage() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center mt-4">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-4">
+              <div className="flex items-center gap-3 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
                 <button
                   onClick={clearFilters}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -732,7 +789,7 @@ export default function SalesPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -810,15 +867,26 @@ export default function SalesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button
-                          onClick={() => printSaleBill(sale)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center mx-auto"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                          </svg>
-                          Print Bill
-                        </button>
+                        <div className="flex items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleEditSale(sale)}
+                            className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2m-1 14v-4m0 0l3-3m-3 3l-3-3M5 13a7 7 0 1114 0 7 7 0 01-14 0z" />
+                            </svg>
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => printSaleBill(sale)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            Print
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -908,6 +976,7 @@ export default function SalesPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 bg-white"
                       required
                       disabled={isSubmitting}
+                      defaultValue={formPrefillData?.accountId || ''}
                     >
                       <option value="">Select Customer Account</option>
                       {customerAccounts.map((account) => (
@@ -926,7 +995,7 @@ export default function SalesPage() {
                     <input
                       type="date"
                       name="date"
-                      defaultValue={new Date().toISOString().split('T')[0]}
+                      defaultValue={formPrefillData?.date || new Date().toISOString().split('T')[0]}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900"
                       required
                       disabled={isSubmitting}
@@ -945,6 +1014,7 @@ export default function SalesPage() {
                         step="0.01"
                         min="0"
                         onChange={handleFormInputChange}
+                        defaultValue={formPrefillData?.weight || ''}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
                         placeholder="Enter weight"
                         required
@@ -958,17 +1028,18 @@ export default function SalesPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Rate (PKR) *
                       </label>
-                      <input
-                        type="number"
-                        name="rate"
-                        step="0.01"
-                        min="0"
-                        onChange={handleFormInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
-                        placeholder="Enter rate"
-                        required
-                        disabled={isSubmitting}
-                      />
+                    <input
+                       type="number"
+                       name="rate"
+                       step="0.01"
+                       min="0"
+                       onChange={handleFormInputChange}
+                       defaultValue={formPrefillData?.rate || ''}
+                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
+                       placeholder="Enter rate"
+                       required
+                       disabled={isSubmitting}
+                     />
                       <p className="text-xs text-gray-500 mt-1">
                         Rate per kg (e.g., PKR 100 per kg)
                       </p>
@@ -981,14 +1052,15 @@ export default function SalesPage() {
                       Total Amount (PKR) *
                     </label>
                     <input
-                      type="number"
-                      name="totalAmount"
-                      step="0.01"
-                      min="0"
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-900"
-                      placeholder="Auto-calculated"
-                    />
+                       type="number"
+                       name="totalAmount"
+                       step="0.01"
+                       min="0"
+                       readOnly
+                       value={formPrefillData ? (Number(formPrefillData.weight) * Number(formPrefillData.rate)).toFixed(2) : undefined}
+                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-900"
+                       placeholder="Auto-calculated"
+                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Total Amount = Weight × Rate (automatically calculated)
                     </p>
@@ -1018,15 +1090,16 @@ export default function SalesPage() {
                       Payment Received (PKR)
                     </label>
                     <input
-                      type="number"
-                      name="payment"
-                      step="0.01"
-                      min="0"
-                      onChange={handleFormInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
-                      placeholder="Enter payment amount"
-                      disabled={isSubmitting}
-                    />
+                       type="number"
+                       name="payment"
+                       step="0.01"
+                       min="0"
+                       onChange={handleFormInputChange}
+                       defaultValue={formPrefillData?.payment || ''}
+                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-blue-700 text-gray-900 placeholder-gray-500"
+                       placeholder="Enter payment amount"
+                       disabled={isSubmitting}
+                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Payment received for this sale (optional)
                     </p>
@@ -1038,12 +1111,12 @@ export default function SalesPage() {
                       Final Balance Owed (PKR)
                     </label>
                     <input
-                      type="number"
-                      name="balance"
-                      step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-900"
-                      readOnly
-                    />
+                       type="number"
+                       name="balance"
+                       step="0.01"
+                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-900"
+                       readOnly
+                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Total amount owed by customer after this sale and payment
                     </p>
@@ -1078,7 +1151,7 @@ export default function SalesPage() {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          Creating...
+                          Saving...
                         </>
                       ) : (
                         'Create Sale'

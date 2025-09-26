@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma, withRetry } from '../../../lib/prisma';
 
 // GET all accounts with optional filtering
 export async function GET(request) {
@@ -24,20 +22,22 @@ export async function GET(request) {
       ];
     }
 
-    const accounts = await prisma.account.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        _count: {
-          select: {
-            ledgers: true,
-            sales: true,
-            purchases: true,
-            debitJournals: true,
-            creditJournals: true
+    const accounts = await withRetry(async () => {
+      return await prisma.account.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: {
+              ledgers: true,
+              sales: true,
+              purchases: true,
+              debitJournals: true,
+              creditJournals: true
+            }
           }
         }
-      }
+      });
     });
 
     return NextResponse.json(accounts);
@@ -77,34 +77,38 @@ export async function POST(request) {
 
     const initialBalance = parseFloat(balance || 0);
     
-    const account = await prisma.account.create({
-      data: {
-        name,
-        phone,
-        address,
-        type,
-        balance: initialBalance
-      }
+    const account = await withRetry(async () => {
+      return await prisma.account.create({
+        data: {
+          name,
+          phone,
+          address,
+          type,
+          balance: initialBalance
+        }
+      });
     });
 
     // Create initial balance ledger entry if balance is not zero
     if (initialBalance !== 0) {
       const currentDate = new Date();
       
-      await prisma.ledger.create({
-        data: {
-          accountId: account.id,
-          drAmount: initialBalance > 0 ? initialBalance : 0,
-          crAmount: initialBalance < 0 ? Math.abs(initialBalance) : 0,
-          details: `Initial balance for account: ${account.name}`,
-          type: 'INITIAL_BALANCE',
-          referenceId: account.id,
-          referenceType: 'ACCOUNT_CREATION',
-          opening_balance: 0,
-          closing_balance: initialBalance,
-          createdAt: currentDate,
-          updatedAt: currentDate
-        }
+      await withRetry(async () => {
+        return await prisma.ledger.create({
+          data: {
+            accountId: account.id,
+            drAmount: initialBalance > 0 ? initialBalance : 0,
+            crAmount: initialBalance < 0 ? Math.abs(initialBalance) : 0,
+            details: `Initial balance for account: ${account.name}`,
+            type: 'INITIAL_BALANCE',
+            referenceId: account.id,
+            referenceType: 'ACCOUNT_CREATION',
+            opening_balance: 0,
+            closing_balance: initialBalance,
+            createdAt: currentDate,
+            updatedAt: currentDate
+          }
+        });
       });
     }
 

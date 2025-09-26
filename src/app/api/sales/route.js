@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma, withRetry } from '../../../lib/prisma';
 
 // GET all sales with optional filtering
 export async function GET(request) {

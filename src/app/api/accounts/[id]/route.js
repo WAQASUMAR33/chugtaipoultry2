@@ -1,26 +1,26 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma, withRetry } from '../../../../lib/prisma';
 
 // GET single account by ID
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
     
-    const account = await prisma.account.findUnique({
-      where: { id: parseInt(id) },
-      include: {
-        ledgers: {
-          orderBy: { createdAt: 'desc' }
-        },
-        sales: {
-          orderBy: { date: 'desc' }
-        },
-        purchases: {
-          orderBy: { date: 'desc' }
+    const account = await withRetry(async () => {
+      return await prisma.account.findUnique({
+        where: { id: parseInt(id) },
+        include: {
+          ledgers: {
+            orderBy: { createdAt: 'desc' }
+          },
+          sales: {
+            orderBy: { date: 'desc' }
+          },
+          purchases: {
+            orderBy: { date: 'desc' }
+          }
         }
-      }
+      });
     });
 
     if (!account) {

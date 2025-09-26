@@ -28,11 +28,24 @@ body {
 /* Ensure body text is always visible */
 body, html {
   color: #000000 !important;
+  overflow-x: hidden;
 }
 
 /* Ensure all text is visible */
 * {
   color: inherit;
+}
+
+/* Prevent accidental full-width elements causing horizontal scroll */
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Utility to contain wide content inside pages */
+.container-responsive {
+  width: 100%;
+  overflow-x: hidden;
 }
 
 /* Force black text for better visibility */
